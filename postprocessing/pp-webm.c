@@ -495,7 +495,7 @@ int janus_pp_webm_process(FILE *file, janus_pp_frame_packet *list, gboolean vp8,
 					/* https://tools.ietf.org/html/draft-ietf-payload-vp9-02 */
 				/* Read the first octet (VP9 Payload Descriptor) */
 				int skipped = 0;
-				if janus_vp9_is_keyframe(buffer,len)
+				if (janus_vp9_is_keyframe(buffer,len))
 				{
 					JANUS_LOG(LOG_INFO, "Found a key frame");
 					keyFrame = 1;
