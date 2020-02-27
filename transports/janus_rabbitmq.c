@@ -219,10 +219,12 @@ int janus_rabbitmq_init(janus_transport_callbacks *callback, const char *config_
 		rmqhost = g_strdup(item->value);
 	else
 		rmqhost = g_strdup("localhost");
-	int rmqport = AMQP_PROTOCOL_PORT;
+	uint16_t rmqport = AMQP_PROTOCOL_PORT;
 	item = janus_config_get(config, config_general, janus_config_type_item, "port");
-	if(item && item->value)
-		rmqport = atoi(item->value);
+	if(item && item->value && janus_string_to_uint16(item->value, &rmqport) < 0) {
+		JANUS_LOG(LOG_ERR, "Invalid port (%s), falling back to default\n", item->value);
+		rmqport = AMQP_PROTOCOL_PORT;
+	}
 
 	/* Credentials and Virtual Host */
 	item = janus_config_get(config, config_general, janus_config_type_item, "vhost");
@@ -746,8 +748,6 @@ void *janus_rmq_out_thread(void *data) {
 	while(!rmq_client->destroy && !g_atomic_int_get(&stopping)) {
 		/* We send messages from here as well, not only notifications */
 		janus_rabbitmq_response *response = g_async_queue_pop(rmq_client->messages);
-		if(response == NULL)
-			continue;
 		if(response == &exit_message)
 			break;
 		if(!rmq_client->destroy && !g_atomic_int_get(&stopping) && response->payload) {
