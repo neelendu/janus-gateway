@@ -4599,8 +4599,10 @@ void janus_videoroom_incoming_rtcp(janus_plugin_session *handle, janus_plugin_rt
 		return;
 	}
 	JANUS_LOG(LOG_INFO,"Entered janus_videoroom_incoming_rtcp line 4601");
+
 	if(g_atomic_int_get(&session->destroyed))
 		return;
+	JANUS_LOG(LOG_INFO,"Entered janus_videoroom_incoming_rtcp line 4605");
 	char *buf = packet->buffer;
 	uint16_t len = packet->length;
 	
