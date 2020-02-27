@@ -4620,6 +4620,21 @@ void janus_videoroom_incoming_rtcp(janus_plugin_session *handle, janus_plugin_rt
 		uint32_t bitrate = janus_rtcp_get_remb(buf, len);
 		if(bitrate > 0) {
 			/* FIXME We got a REMB from this subscriber, should we do something about it? */
+			JANUS_LOG(LOG_INFO,"Sending bit rate remb to sub->pub");
+			if (s->feed){
+				janus_videoroom_publisher *p = s->feed;
+				if(p && p->session) {
+					gateway->send_remb(p->session->handle,bitrate);
+					return;
+				}
+			}
+		}
+		if (s->feed){
+			janus_videoroom_publisher *p = s->feed;
+				if(p && p->session) {
+					gateway->relay_rtcp(p->session->handle,packet);
+					return;
+				}
 		}
 	}
 }
