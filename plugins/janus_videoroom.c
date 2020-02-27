@@ -4590,7 +4590,7 @@ void janus_videoroom_incoming_rtp(janus_plugin_session *handle, janus_plugin_rtp
 }
 
 void janus_videoroom_incoming_rtcp(janus_plugin_session *handle, janus_plugin_rtcp *packet) {
-	JANUS_LOG(LOG_INFO,"Entered janus_videoroom_incoming_rtcp");
+	
 	if(g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized))
 		return;
 	janus_videoroom_session *session = (janus_videoroom_session *)handle->plugin_handle;
@@ -4598,16 +4598,13 @@ void janus_videoroom_incoming_rtcp(janus_plugin_session *handle, janus_plugin_rt
 		JANUS_LOG(LOG_ERR, "No session associated with this handle...\n");
 		return;
 	}
-	JANUS_LOG(LOG_INFO,"Entered janus_videoroom_incoming_rtcp line 4601");
-
 	if(g_atomic_int_get(&session->destroyed))
 		return;
-	JANUS_LOG(LOG_INFO,"Entered janus_videoroom_incoming_rtcp line 4605");
 	char *buf = packet->buffer;
 	uint16_t len = packet->length;
 	
 	if(session->participant_type == janus_videoroom_p_type_subscriber) {
-		JANUS_LOG(LOG_INFO,"Entered janus_videoroom_incoming_rtcp FOUND sub line 4608");
+		JANUS_LOG(LOG_INFO,"Entered janus_videoroom_incoming_rtcp FOUND sub line 4608 \n");
 		/* A subscriber sent some RTCP, check what it is and if we need to forward it to the publisher */
 		janus_videoroom_subscriber *s = (janus_videoroom_subscriber *)session->participant;
 		if(s == NULL || g_atomic_int_get(&s->destroyed))

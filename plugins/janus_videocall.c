@@ -788,7 +788,6 @@ void janus_videocall_incoming_rtcp(janus_plugin_session *handle, janus_plugin_rt
 	if(handle == NULL || g_atomic_int_get(&handle->stopped) || g_atomic_int_get(&stopping) || !g_atomic_int_get(&initialized))
 		return;
 	if(gateway) {
-		JANUS_LOG(LOG_INFO,"Entered janus_videocall_incoming_rtcp line 791");
 		janus_videocall_session *session = (janus_videocall_session *)handle->plugin_handle;
 		if(!session) {
 			JANUS_LOG(LOG_ERR, "No session associated with this handle...\n");
