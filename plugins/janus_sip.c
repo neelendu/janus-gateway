@@ -3292,7 +3292,7 @@ static void *janus_sip_handler(void *data) {
 					referred_by = transfer->referred_by ? g_strdup(transfer->referred_by) : NULL;
 				}
 				/* Any custom headers we should include? (e.g., Replaces) */
-				if(transfer->custom_headers != NULL) {
+				if(transfer != NULL && transfer->custom_headers != NULL) {
 					g_strlcat(custom_headers, transfer->custom_headers, sizeof(custom_headers));
 				}
 			}
@@ -5825,8 +5825,6 @@ static void *janus_sip_relay_thread(void *data) {
 	/* Loop */
 	int num = 0;
 	gboolean goon = TRUE;
-	int astep = 0, vstep = 0;
-	guint32 ats = 0, vts = 0;
 
 	session->media.updated = TRUE; /* Connect UDP sockets upon loop entry */
 	gboolean have_audio_server_ip = TRUE;
@@ -6014,15 +6012,7 @@ static void *janus_sip_relay_thread(void *data) {
 						bytes = buflen;
 					}
 					/* Check if the SSRC changed (e.g., after a re-INVITE or UPDATE) */
-					guint32 timestamp = ntohl(header->timestamp);
-					janus_rtp_header_update(header, &session->media.context, FALSE, astep ? astep : 960);
-					if(ats == 0) {
-						ats = timestamp;
-					} else if(astep == 0) {
-						astep = timestamp-ats;
-						if(astep < 0)
-							astep = 0;
-					}
+					janus_rtp_header_update(header, &session->media.context, FALSE, 0);
 					/* Save the frame if we're recording */
 					janus_recorder_save_frame(session->arc_peer, buffer, bytes);
 					/* Relay to application */
@@ -6094,15 +6084,7 @@ static void *janus_sip_relay_thread(void *data) {
 						bytes = buflen;
 					}
 					/* Check if the SSRC changed (e.g., after a re-INVITE or UPDATE) */
-					janus_rtp_header_update(header, &session->media.context, TRUE, vstep ? vstep : 4500);
-					guint32 timestamp = ntohl(header->timestamp);
-					if(vts == 0) {
-						vts = timestamp;
-					} else if(vstep == 0) {
-						vstep = timestamp-vts;
-						if(vstep < 0)
-							vstep = 0;
-					}
+					janus_rtp_header_update(header, &session->media.context, TRUE, 0);
 					/* Save the frame if we're recording */
 					janus_recorder_save_frame(session->vrc_peer, buffer, bytes);
 					/* Relay to application */
