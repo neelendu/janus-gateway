@@ -4614,6 +4614,8 @@ void janus_videoroom_incoming_rtcp(janus_plugin_session *handle, janus_plugin_rt
 				janus_videoroom_publisher *p = s->feed;
 				if(p && p->session) {
 					janus_videoroom_reqpli(p, "PLI from subscriber");
+					JANUS_LOG(LOG_INFO,"SENT PLI/FIR to sub->pub");
+					return;
 				}
 			}
 		}
@@ -4625,6 +4627,7 @@ void janus_videoroom_incoming_rtcp(janus_plugin_session *handle, janus_plugin_rt
 				janus_videoroom_publisher *p = s->feed;
 				if(p && p->session) {
 					gateway->send_remb(p->session->handle,bitrate);
+					JANUS_LOG(LOG_INFO,"SENT bit rate remb to sub->pub");
 					return;
 				}
 			}
@@ -4633,7 +4636,7 @@ void janus_videoroom_incoming_rtcp(janus_plugin_session *handle, janus_plugin_rt
 			janus_videoroom_publisher *p = s->feed;
 				if(p && p->session) {
 					gateway->relay_rtcp(p->session->handle,packet);
-					return;
+					JANUS_LOG(LOG_INFO,"Relayed RTCP packet to sub->pub");
 				}
 		}
 	}
