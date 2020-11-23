@@ -43,6 +43,8 @@
 #include "../ip-utils.h"
 #include "../utils.h"
 
+#define HIREPRO_MAX_NO_OF_CONNS  64000
+#define HIREPRO_LISTEN_BACKLOG_SIZE 1024
 
 /* Transport plugin information */
 #define JANUS_REST_VERSION			2
@@ -388,6 +390,8 @@ static struct MHD_Daemon *janus_http_create_daemon(gboolean admin, char *path,
 			}
 		}
 	}
+	JANUS_LOG(LOG_INFO, "Bumping up NoOf-HTTP-Conns to %ld. ListenBackLogSize to %u ",
+            HIREPRO_MAX_NO_OF_CONNS, HIREPRO_LISTEN_BACKLOG_SIZE);
 
 	if(!secure) {
 		/* HTTP web server */
@@ -410,6 +414,8 @@ static struct MHD_Daemon *janus_http_create_daemon(gboolean admin, char *path,
 					admin ? &janus_http_admin_handler : &janus_http_handler,
 					path,
 					MHD_OPTION_NOTIFY_COMPLETED, &janus_http_request_completed, NULL,
+					MHD_OPTION_CONNECTION_LIMIT, HIREPRO_MAX_NO_OF_CONNS,
+					MHD_OPTION_LISTEN_BACKLOG_SIZE, HIREPRO_LISTEN_BACKLOG_SIZE,
 					MHD_OPTION_END);
 			} else {
 				/* Bind to the interface that was specified */
@@ -429,6 +435,8 @@ static struct MHD_Daemon *janus_http_create_daemon(gboolean admin, char *path,
 					path,
 					MHD_OPTION_NOTIFY_COMPLETED, &janus_http_request_completed, NULL,
 					MHD_OPTION_SOCK_ADDR, ipv6 ? (struct sockaddr *)&addr6 : (struct sockaddr *)&addr,
+					MHD_OPTION_CONNECTION_LIMIT, HIREPRO_MAX_NO_OF_CONNS,
+					MHD_OPTION_LISTEN_BACKLOG_SIZE, HIREPRO_LISTEN_BACKLOG_SIZE,
 					MHD_OPTION_END);
 			}
 		} else {
@@ -447,6 +455,8 @@ static struct MHD_Daemon *janus_http_create_daemon(gboolean admin, char *path,
 					path,
 					MHD_OPTION_THREAD_POOL_SIZE, threads,
 					MHD_OPTION_NOTIFY_COMPLETED, &janus_http_request_completed, NULL,
+					MHD_OPTION_CONNECTION_LIMIT, HIREPRO_MAX_NO_OF_CONNS,
+					MHD_OPTION_LISTEN_BACKLOG_SIZE, HIREPRO_LISTEN_BACKLOG_SIZE,
 					MHD_OPTION_END);
 			} else {
 				/* Bind to the interface that was specified */
@@ -463,6 +473,8 @@ static struct MHD_Daemon *janus_http_create_daemon(gboolean admin, char *path,
 					MHD_OPTION_THREAD_POOL_SIZE, threads,
 					MHD_OPTION_NOTIFY_COMPLETED, &janus_http_request_completed, NULL,
 					MHD_OPTION_SOCK_ADDR, ipv6 ? (struct sockaddr *)&addr6 : (struct sockaddr *)&addr,
+					MHD_OPTION_CONNECTION_LIMIT, HIREPRO_MAX_NO_OF_CONNS,
+					MHD_OPTION_LISTEN_BACKLOG_SIZE, HIREPRO_LISTEN_BACKLOG_SIZE,
 					MHD_OPTION_END);
 			}
 		}
@@ -502,6 +514,8 @@ static struct MHD_Daemon *janus_http_create_daemon(gboolean admin, char *path,
 #if MHD_VERSION >= 0x00093903
 					MHD_OPTION_HTTPS_KEY_PASSWORD, password,
 #endif
+					MHD_OPTION_CONNECTION_LIMIT, HIREPRO_MAX_NO_OF_CONNS,
+					MHD_OPTION_LISTEN_BACKLOG_SIZE, HIREPRO_LISTEN_BACKLOG_SIZE,
 					MHD_OPTION_END);
 			} else {
 				/* Bind to the interface that was specified */
@@ -527,6 +541,8 @@ static struct MHD_Daemon *janus_http_create_daemon(gboolean admin, char *path,
 					MHD_OPTION_HTTPS_KEY_PASSWORD, password,
 #endif
 					MHD_OPTION_SOCK_ADDR, ipv6 ? (struct sockaddr *)&addr6 : (struct sockaddr *)&addr,
+					MHD_OPTION_CONNECTION_LIMIT, HIREPRO_MAX_NO_OF_CONNS,
+					MHD_OPTION_LISTEN_BACKLOG_SIZE, HIREPRO_LISTEN_BACKLOG_SIZE,
 					MHD_OPTION_END);
 			}
 		} else {
@@ -551,6 +567,8 @@ static struct MHD_Daemon *janus_http_create_daemon(gboolean admin, char *path,
 #if MHD_VERSION >= 0x00093903
 					MHD_OPTION_HTTPS_KEY_PASSWORD, password,
 #endif
+					MHD_OPTION_CONNECTION_LIMIT, HIREPRO_MAX_NO_OF_CONNS,
+					MHD_OPTION_LISTEN_BACKLOG_SIZE, HIREPRO_LISTEN_BACKLOG_SIZE,
 					MHD_OPTION_END);
 			} else {
 				/* Bind to the interface that was specified */
@@ -573,6 +591,8 @@ static struct MHD_Daemon *janus_http_create_daemon(gboolean admin, char *path,
 					MHD_OPTION_HTTPS_KEY_PASSWORD, password,
 #endif
 					MHD_OPTION_SOCK_ADDR, ipv6 ? (struct sockaddr *)&addr6 : (struct sockaddr *)&addr,
+					MHD_OPTION_CONNECTION_LIMIT, HIREPRO_MAX_NO_OF_CONNS,
+					MHD_OPTION_LISTEN_BACKLOG_SIZE, HIREPRO_LISTEN_BACKLOG_SIZE,
 					MHD_OPTION_END);
 			}
 		}
