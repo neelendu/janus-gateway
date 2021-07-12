@@ -90,10 +90,56 @@ guint64 janus_random_uint64(void) {
 	return num;
 }
 
+char *janus_random_uuid(void) {
+#if GLIB_CHECK_VERSION(2, 52, 0)
+	return g_uuid_string_random();
+#else
+	/* g_uuid_string_random is only available from glib 2.52, so if it's
+	 * not available we have to do it manually: the following code is
+	 * heavily based on https://github.com/rxi/uuid4 (MIT license) */
+	const char *template = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
+	const char *samples = "0123456789abcdef";
+	union { unsigned char b[16]; uint64_t word[2]; } rnd;
+	rnd.word[0] = janus_random_uint64();
+	rnd.word[1] = janus_random_uint64();
+	/* Generate the string */
+	char uuid[37], *dst = uuid;
+	const char *p = template;
+	int i = 0, n = 0;
+	while(*p) {
+		n = rnd.b[i >> 1];
+		n = (i & 1) ? (n >> 4) : (n & 0xf);
+		switch (*p) {
+			case 'x':
+				*dst = samples[n];
+				i++;
+				break;
+			case 'y':
+				*dst = samples[(n & 0x3) + 8];
+				i++;
+				break;
+			default:
+				*dst = *p;
+		}
+		p++;
+		dst++;
+	}
+	uuid[36] = '\0';
+	return g_strdup(uuid);
+#endif
+}
+
 guint64 *janus_uint64_dup(guint64 num) {
 	guint64 *numdup = g_malloc(sizeof(guint64));
 	*numdup = num;
 	return numdup;
+}
+
+guint64 janus_uint64_hash(guint64 num) {
+	num = (num ^ (num >> 30)) * UINT64_C(0xbf58476d1ce4e5b9);
+	num = (num ^ (num >> 27)) * UINT64_C(0x94d049bb133111eb);
+	num = num ^ (num >> 31);
+	return num;
 }
 
 int janus_string_to_uint8(const char *str, uint8_t *num) {
@@ -250,6 +296,16 @@ int janus_mkdir(const char *dir, mode_t mode) {
 	return 0;
 }
 
+gchar *janus_make_absolute_path(const gchar *base_dir, const gchar *path) {
+	if(!path)
+		return NULL;
+	if(g_path_is_absolute(path))
+		return g_strdup(path);
+	if(!base_dir)
+		return NULL;
+	return g_build_filename(base_dir, path, NULL);
+}
+
 int janus_get_codec_pt(const char *sdp, const char *codec) {
 	if(!sdp || !codec)
 		return -1;
@@ -294,6 +350,14 @@ int janus_get_codec_pt(const char *sdp, const char *codec) {
 		video = 1;
 		format = "h264/90000";
 		format2 = "H264/90000";
+	} else if(!strcasecmp(codec, "av1")) {
+		video = 1;
+		format = "av1x/90000";
+		format2 = "AV1X/90000";
+	} else if(!strcasecmp(codec, "h265")) {
+		video = 1;
+		format = "h265/90000";
+		format2 = "H265/90000";
 	} else {
 		JANUS_LOG(LOG_ERR, "Unsupported codec '%s'\n", codec);
 		return -1;
@@ -359,7 +423,7 @@ const char *janus_get_codec_from_pt(const char *sdp, int pt) {
 			if(strstr(line, rtpmap)) {
 				/* Gotcha! */
 				char name[100];
-				if(sscanf(line, "a=rtpmap:%d %s", &pt, name) == 2) {
+				if(sscanf(line, "a=rtpmap:%d %99s", &pt, name) == 2) {
 					*next = '\n';
 					if(strstr(name, "vp8") || strstr(name, "VP8"))
 						return "vp8";
@@ -367,6 +431,10 @@ const char *janus_get_codec_from_pt(const char *sdp, int pt) {
 						return "vp9";
 					if(strstr(name, "h264") || strstr(name, "H264"))
 						return "h264";
+					if(strstr(name, "av1") || strstr(name, "AV1"))
+						return "av1";
+					if(strstr(name, "h265") || strstr(name, "H265"))
+						return "h265";
 					if(strstr(name, "opus") || strstr(name, "OPUS"))
 						return "opus";
 					if(strstr(name, "pcmu") || strstr(name, "PCMU"))
@@ -424,7 +492,7 @@ int janus_pidfile_create(const char *file) {
 	/* Write the PID */
 	pid = getpid();
 	if(fprintf(pidf, "%d\n", pid) < 0) {
-		JANUS_LOG(LOG_FATAL, "Error writing PID in file, error %d (%s)\n", errno, strerror(errno));
+		JANUS_LOG(LOG_FATAL, "Error writing PID in file, error %d (%s)\n", errno, g_strerror(errno));
 		fclose(pidf);
 		return -1;
 	}
@@ -470,7 +538,7 @@ gboolean janus_is_folder_protected(const char *path) {
 	resolved[0] = '\0';
 	if(realpath(path, resolved) == NULL && errno != ENOENT) {
 		JANUS_LOG(LOG_ERR, "Error resolving path '%s'... %d (%s)\n",
-			path, errno, strerror(errno));
+			path, errno, g_strerror(errno));
 		return TRUE;
 	}
 	/* Traverse the list of protected folders to see if any match */
@@ -625,31 +693,31 @@ gboolean janus_vp8_is_keyframe(const char *buffer, int len) {
 			buffer++;
 			vp8pd = *buffer;
 		}
-		buffer++;	/* Now we're in the payload */
-		if(sbit) {
-			JANUS_LOG(LOG_HUGE, "  -- S bit is set!\n");
-			unsigned long int vp8ph = 0;
-			memcpy(&vp8ph, buffer, 4);
-			vp8ph = ntohl(vp8ph);
-			uint8_t pbit = ((vp8ph & 0x01000000) >> 24);
-			if(!pbit) {
-				JANUS_LOG(LOG_HUGE, "  -- P bit is NOT set!\n");
-				/* It is a key frame! Get resolution for debugging */
-				unsigned char *c = (unsigned char *)buffer+3;
-				/* vet via sync code */
-				if(c[0]!=0x9d||c[1]!=0x01||c[2]!=0x2a) {
-					JANUS_LOG(LOG_HUGE, "First 3-bytes after header not what they're supposed to be?\n");
-				} else {
-					unsigned short val3, val5;
-					memcpy(&val3,c+3,sizeof(short));
-					int vp8w = swap2(val3)&0x3fff;
-					int vp8ws = swap2(val3)>>14;
-					memcpy(&val5,c+5,sizeof(short));
-					int vp8h = swap2(val5)&0x3fff;
-					int vp8hs = swap2(val5)>>14;
-					JANUS_LOG(LOG_HUGE, "Got a VP8 key frame: %dx%d (scale=%dx%d)\n", vp8w, vp8h, vp8ws, vp8hs);
-					return TRUE;
-				}
+	}
+	buffer++;	/* Now we're in the payload */
+	if(sbit) {
+		JANUS_LOG(LOG_HUGE, "  -- S bit is set!\n");
+		unsigned long int vp8ph = 0;
+		memcpy(&vp8ph, buffer, 4);
+		vp8ph = ntohl(vp8ph);
+		uint8_t pbit = ((vp8ph & 0x01000000) >> 24);
+		if(!pbit) {
+			JANUS_LOG(LOG_HUGE, "  -- P bit is NOT set!\n");
+			/* It is a key frame! Get resolution for debugging */
+			unsigned char *c = (unsigned char *)buffer+3;
+			/* vet via sync code */
+			if(c[0]!=0x9d||c[1]!=0x01||c[2]!=0x2a) {
+				JANUS_LOG(LOG_HUGE, "First 3-bytes after header not what they're supposed to be?\n");
+			} else {
+				unsigned short val3, val5;
+				memcpy(&val3,c+3,sizeof(short));
+				int vp8w = swap2(val3)&0x3fff;
+				int vp8ws = swap2(val3)>>14;
+				memcpy(&val5,c+5,sizeof(short));
+				int vp8h = swap2(val5)&0x3fff;
+				int vp8hs = swap2(val5)>>14;
+				JANUS_LOG(LOG_HUGE, "Got a VP8 key frame: %dx%d (scale=%dx%d)\n", vp8w, vp8h, vp8ws, vp8hs);
+				return TRUE;
 			}
 		}
 	}
@@ -742,7 +810,7 @@ gboolean janus_vp9_is_keyframe(const char *buffer, int len) {
 }
 
 gboolean janus_h264_is_keyframe(const char *buffer, int len) {
-	if(!buffer || len < 16)
+	if(!buffer || len < 6)
 		return FALSE;
 	/* Parse H264 header now */
 	uint8_t fragment = *buffer & 0x1F;
@@ -771,6 +839,32 @@ gboolean janus_h264_is_keyframe(const char *buffer, int len) {
 		}
 	}
 	/* If we got here it's not a key frame */
+	return FALSE;
+}
+
+gboolean janus_av1_is_keyframe(const char *buffer, int len) {
+	if(!buffer || len < 3)
+		return FALSE;
+	/* Read the aggregation header */
+	uint8_t aggrh = *buffer;
+	uint8_t zbit = (aggrh & 0x80) >> 7;
+	uint8_t nbit = (aggrh & 0x08) >> 3;
+	/* FIXME Ugly hack: we consider a packet with Z=0 and N=1 a keyframe */
+	return (!zbit && nbit);
+}
+
+gboolean janus_h265_is_keyframe(const char *buffer, int len) {
+	if(!buffer || len < 2)
+		return FALSE;
+	/* Parse the NAL unit */
+	uint16_t unit = 0;
+	memcpy(&unit, buffer, sizeof(uint16_t));
+	unit = ntohs(unit);
+	uint8_t type = (unit & 0x7E00) >> 9;
+	if(type == 32 || type == 33) {
+		/* FIXME We return TRUE for VPS and SPS */
+		return TRUE;
+	}
 	return FALSE;
 }
 
@@ -1054,6 +1148,8 @@ int janus_vp9_parse_svc(char *buffer, int len, gboolean *found, janus_vp9_svc_in
 }
 
 inline guint32 janus_push_bits(guint32 word, size_t num, guint32 val) {
+	if(num == 0)
+		return word;
 	return (word << num) | (val & (0xFFFFFFFF>>(32-num)));
 }
 
@@ -1089,7 +1185,7 @@ size_t janus_gzip_compress(int compression, char *text, size_t tlen, char *compr
 	}
 
 	/* Initialize the deflater, and clarify we need gzip */
-	z_stream zs;
+	z_stream zs = { 0 };
 	zs.zalloc = Z_NULL;
 	zs.zfree = Z_NULL;
 	zs.opaque = Z_NULL;
